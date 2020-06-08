@@ -383,9 +383,9 @@
           <GroupName>src</GroupName>
           <Files>
             <File>
-              <FileName>rtc_print.c</FileName>
+              <FileName>randomness.c</FileName>
               <FileType>1</FileType>
-              <FilePath>../src/rtc_print.c</FilePath>
+              <FilePath>..\src\randomness.c</FilePath>
             </File>
             <File>
               <FileName>am_timebase.c</FileName>

@@ -166,7 +166,7 @@
           <SizeOfObject>0</SizeOfObject>
           <BreakByAccess>0</BreakByAccess>
           <BreakIfRCount>1</BreakIfRCount>
-          <Filename>../src/rtc_print.c</Filename>
+          <Filename>C:\AmbiqMicro\AmbiqSuite-Rel2.4.2\boards\apollo3_evb\examples\Randomness\src\rtc_print.c</Filename>
           <ExecCommand></ExecCommand>
           <Expression>\\rtc_print\../src/rtc_print.c\190</Expression>
         </Bp>
@@ -269,8 +269,8 @@
       <tvExp>0</tvExp>
       <tvExpOptDlg>0</tvExpOptDlg>
       <bDave2>0</bDave2>
-      <PathWithFileName>../src/rtc_print.c</PathWithFileName>
-      <FilenameWithoutPath>rtc_print.c</FilenameWithoutPath>
+      <PathWithFileName>..\src\randomness.c</PathWithFileName>
+      <FilenameWithoutPath>randomness.c</FilenameWithoutPath>
       <RteFlg>0</RteFlg>
       <bShared>0</bShared>
     </File>
