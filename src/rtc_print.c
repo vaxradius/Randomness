@@ -1,17 +1,3 @@
-//*****************************************************************************
-//
-//! @file rtc_print.c
-//!
-//! @brief Example using the internal RTC.
-//!
-//! This example demonstrates how to interface with the RTC and prints the
-//! time over SWO.
-//!
-//! The example works by configuring a timer interrupt which will periodically
-//! wake the core from deep sleep. After every interrupt, it prints the current
-//! RTC time.
-//!
-//*****************************************************************************
 
 //*****************************************************************************
 //
@@ -55,36 +41,8 @@
 #include "am_bsp.h"
 #include "am_util.h"
 
-//
-// String arrays to index Days and Months with the values returned by the RTC.
-//
-char *pcWeekday[] =
-{
-    "Sunday",
-    "Monday",
-    "Tuesday",
-    "Wednesday",
-    "Thursday",
-    "Friday",
-    "Saturday",
-    "Invalid day"
-};
-char *pcMonth[] =
-{
-    "January",
-    "February",
-    "March",
-    "April",
-    "May",
-    "June",
-    "July",
-    "August",
-    "September",
-    "October",
-    "November",
-    "December",
-    "Invalid month"
-};
+
+bool g_timer_flag = false;
 
 //*****************************************************************************
 //
@@ -99,15 +57,11 @@ am_hal_ctimer_config_t g_sTimer0 =
     // Set up TimerA0.
     (AM_HAL_CTIMER_FN_REPEAT |
      AM_HAL_CTIMER_INT_ENABLE |
-     AM_HAL_CTIMER_LFRC_32HZ),
+     AM_HAL_CTIMER_LFRC_512HZ),
 
     // No configuration required for TimerB0.
     0,
 };
-
-am_hal_rtc_time_t hal_time;
-uint32_t    g_LastSecond = 0;
-uint32_t    g_TestCount = 0;
 
 
 //*****************************************************************************
@@ -132,7 +86,7 @@ timerA0_init(void)
     //
     // Set the timing for timerA0.
     //
-    am_hal_ctimer_period_set(0, AM_HAL_CTIMER_TIMERA, 31, 0);
+    am_hal_ctimer_period_set(0, AM_HAL_CTIMER_TIMERA, 512-1, 0);
 
     //
     // Clear the timer Interrupt
@@ -152,47 +106,14 @@ am_ctimer_isr(void)
     // Clear TimerA0 Interrupt (write to clear).
     //
     am_hal_ctimer_int_clear(AM_HAL_CTIMER_INT_TIMERA0);
-
-    am_hal_rtc_time_get(&hal_time);
+	g_timer_flag = true;
 
 }
 
-//*****************************************************************************
-//
-// Support function:
-// toVal() converts a string to an ASCII value.
-//
-//*****************************************************************************
-int
-toVal(char *pcAsciiStr)
-{
-    int iRetVal = 0;
-    iRetVal += pcAsciiStr[1] - '0';
-    iRetVal += pcAsciiStr[0] == ' ' ? 0 : (pcAsciiStr[0] - '0') * 10;
-    return iRetVal;
-}
 
-//*****************************************************************************
-//
-// Support function:
-// mthToIndex() converts a string indicating a month to an index value.
-// The return value is a value 0-12, with 0-11 indicating the month given
-// by the string, and 12 indicating that the string is not a month.
-//
-//*****************************************************************************
-int
-mthToIndex(char *pcMon)
-{
-    int idx;
-    for (idx = 0; idx < 12; idx++)
-    {
-        if ( am_util_string_strnicmp(pcMonth[idx], pcMon, 3) == 0 )
-        {
-            return idx;
-        }
-    }
-    return 12;
-}
+extern uint32_t am_timebase_get_tick(unsigned long long* mytick);
+unsigned long long u64tick = 0;
+unsigned long long u64ticklast = 0;
 
 //*****************************************************************************
 //
@@ -202,7 +123,8 @@ mthToIndex(char *pcMon)
 int
 main(void)
 {
-    //
+
+	//
     // Set the clock frequency.
     //
     am_hal_clkgen_control(AM_HAL_CLKGEN_CONTROL_SYSCLK_MAX, 0);
@@ -218,69 +140,18 @@ main(void)
     //
     am_bsp_low_power_init();
 
-    //
-    // Enable the XT for the RTC.
-    //
-    am_hal_clkgen_control(AM_HAL_CLKGEN_CONTROL_XTAL_START, 0);
 
     //
-    // Select XT for RTC clock source
-    //
-    am_hal_rtc_osc_select(AM_HAL_RTC_OSC_XT);
-
-    //
-    // Enable the RTC.
-    //
-    am_hal_rtc_osc_enable();
-
-    //
-    // Initialize the printf interface for ITM/SWO output.
+    // Initialize the printf interface for ITM output
     //
     am_bsp_itm_printf_enable();
-
-    //
-    // Enable the ITM.
-    //
-    am_hal_itm_enable();
-
-    //
-    // Set the RTC time for this example.
-    // WARNING this will destroy any time epoch currently in the RTC.
-    //
-#if defined(__GNUC__)  ||  defined(__ARMCC_VERSION)  ||  defined(__IAR_SYSTEMS_ICC__)
-    //
-    // The RTC is initialized from the date and time strings that are
-    // obtained from the compiler at compile time.
-    //
-    hal_time.ui32Hour = toVal(&__TIME__[0]);
-    hal_time.ui32Minute = toVal(&__TIME__[3]);
-    hal_time.ui32Second = toVal(&__TIME__[6]);
-    hal_time.ui32Hundredths = 00;
-    hal_time.ui32Weekday = am_util_time_computeDayofWeek(2000 + toVal(&__DATE__[9]), mthToIndex(&__DATE__[0]) + 1, toVal(&__DATE__[4]) );
-    hal_time.ui32DayOfMonth = toVal(&__DATE__[4]);
-    hal_time.ui32Month = mthToIndex(&__DATE__[0]);
-    hal_time.ui32Year = toVal(&__DATE__[9]);
-    hal_time.ui32Century = 0;
-#else
-    //
-    // The RTC is initialized from an arbitrary date.
-    //
-    hal_time.ui32Hour = 14;
-    hal_time.ui32Minute = 24;
-    hal_time.ui32Second = 33;
-    hal_time.ui32Hundredths = 50;
-    hal_time.ui32Weekday = 3;
-    hal_time.ui32DayOfMonth = 15;
-    hal_time.ui32Month = 4;
-    hal_time.ui32Year = 14;
-    hal_time.ui32Century = 0;
-#endif
-    am_hal_rtc_time_set(&hal_time);
 
     //
     // TimerA0 init.
     //
     timerA0_init();
+
+	am_timebase_init();
 
     //
     // Enable the timer Interrupt.
@@ -298,53 +169,28 @@ main(void)
     //
     am_hal_ctimer_start(0, AM_HAL_CTIMER_TIMERA);
 
+	am_util_stdio_printf("Randomness\n\n");
+
 
     //
     // Loop forever, printing when awakened by the timer.
     //
     while (1)
     {
-        //
-        // Enable debug printf messages using ITM on SWO pin
-        //
-        am_bsp_debug_printf_enable();
-
-        //
-        // Clear the terminal.
-        //
-        am_util_stdio_terminal_clear();
-
-        //
-        // Print the banner.
-        //
-        am_util_stdio_printf("RTC Print Example\n");
-        am_util_stdio_printf("This example was built on %s at %s.\n\n", __DATE__, __TIME__);
-
-        //
-        // Print RTC time.
-        //
-        am_hal_rtc_time_get(&hal_time);
-        am_util_stdio_printf("\tIt is now ");
-        am_util_stdio_printf("%d : ", hal_time.ui32Hour);
-        am_util_stdio_printf("%02d : ", hal_time.ui32Minute);
-        am_util_stdio_printf("%02d.", hal_time.ui32Second);
-        am_util_stdio_printf("%02d ", hal_time.ui32Hundredths);
-        am_util_stdio_printf(pcWeekday[hal_time.ui32Weekday]);
-        am_util_stdio_printf(" ");
-        am_util_stdio_printf(pcMonth[hal_time.ui32Month]);
-        am_util_stdio_printf(" ");
-        am_util_stdio_printf("%d, ", hal_time.ui32DayOfMonth);
-        am_util_stdio_printf("20%02d", hal_time.ui32Year);
-
-        //
-        // We are done printing. Disable debug printf messages on ITM.
-        //
-        am_bsp_debug_printf_disable();
 
         //
         // Go to Deep Sleep and wait for a wake up.
         //
-        am_hal_sysctrl_sleep(AM_HAL_SYSCTRL_SLEEP_DEEP);
+        am_hal_sysctrl_sleep(AM_HAL_SYSCTRL_SLEEP_NORMAL);
+		if(g_timer_flag)
+		{
+			g_timer_flag = false;
+			//u64tick = am_timebase_get_tick(&u64ticklast);
+			am_util_stdio_printf("%dms\n",am_timebase_get_tick(&u64tick));
+			am_util_stdio_printf("%lld\n",u64tick-u64ticklast);
+			//am_util_stdio_printf("%dticks\n",(u64tick - u64ticklast));
+			u64ticklast = u64tick;
+		}
     }
 
 }
