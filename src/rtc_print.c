@@ -42,7 +42,22 @@
 #include "am_util.h"
 
 
+/*
+o	A) 100ms timer on LFRC. Measure # of HFRC cycles elapsed (~4,800,000). Repeat 100 times.
+o	B) 1s timer on LFRC. Measure # of HFRC cycle elapsed (~48,000,000). Repeat 100 times.
+o	C) 10s timer on LFRC. Measure # of HFRC cycles (~480,000,000). Repeat 100 times (17 minutes!).
+*/
+
+#define CTIMER_CLOCK_SOURCE AM_HAL_CTIMER_LFRC_512HZ
+#define MEASURE_PERIOD 512 //~100ms:51, 1s:512, 10s:5120  
+#define REPEAT_TIMES 100
+
+
 bool g_timer_flag = false;
+
+extern void am_timebase_init(void);
+extern uint32_t am_timebase_get_tick(unsigned long long* u64tick);
+
 
 //*****************************************************************************
 //
@@ -57,7 +72,7 @@ am_hal_ctimer_config_t g_sTimer0 =
     // Set up TimerA0.
     (AM_HAL_CTIMER_FN_REPEAT |
      AM_HAL_CTIMER_INT_ENABLE |
-     AM_HAL_CTIMER_LFRC_512HZ),
+     CTIMER_CLOCK_SOURCE),
 
     // No configuration required for TimerB0.
     0,
@@ -86,7 +101,7 @@ timerA0_init(void)
     //
     // Set the timing for timerA0.
     //
-    am_hal_ctimer_period_set(0, AM_HAL_CTIMER_TIMERA, 512-1, 0);
+    am_hal_ctimer_period_set(0, AM_HAL_CTIMER_TIMERA, (MEASURE_PERIOD-1), 0);
 
     //
     // Clear the timer Interrupt
@@ -110,11 +125,6 @@ am_ctimer_isr(void)
 
 }
 
-
-extern uint32_t am_timebase_get_tick(unsigned long long* mytick);
-unsigned long long u64tick = 0;
-unsigned long long u64ticklast = 0;
-
 //*****************************************************************************
 //
 // Main
@@ -123,7 +133,9 @@ unsigned long long u64ticklast = 0;
 int
 main(void)
 {
-
+	unsigned long long u64tick_now = 0;
+	unsigned long long u64tick_last = 0;
+	int count = 0;
 	//
     // Set the clock frequency.
     //
@@ -151,7 +163,7 @@ main(void)
     //
     timerA0_init();
 
-	am_timebase_init();
+    am_timebase_init();
 
     //
     // Enable the timer Interrupt.
@@ -177,19 +189,18 @@ main(void)
     //
     while (1)
     {
-
-        //
-        // Go to Deep Sleep and wait for a wake up.
-        //
-        am_hal_sysctrl_sleep(AM_HAL_SYSCTRL_SLEEP_NORMAL);
-		if(g_timer_flag)
+		//
+		// Go to Deep Sleep and wait for a wake up.
+		//
+		am_hal_sysctrl_sleep(AM_HAL_SYSCTRL_SLEEP_NORMAL);
+		if(g_timer_flag && count++ < REPEAT_TIMES)
 		{
 			g_timer_flag = false;
-			//u64tick = am_timebase_get_tick(&u64ticklast);
-			am_util_stdio_printf("%dms\n",am_timebase_get_tick(&u64tick));
-			am_util_stdio_printf("%lld\n",u64tick-u64ticklast);
-			//am_util_stdio_printf("%dticks\n",(u64tick - u64ticklast));
-			u64ticklast = u64tick;
+			am_util_stdio_printf("%d.\t(%dms)\t",count,am_timebase_get_tick(&u64tick_now));
+			am_util_stdio_printf("%lld\n",u64tick_now-u64tick_last);
+			u64tick_last = u64tick_now;
+			if(count == REPEAT_TIMES)
+				am_util_stdio_printf("done\n\n");
 		}
     }
 

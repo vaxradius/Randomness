@@ -6,7 +6,6 @@
 
 
 #include "am_mcu_apollo.h"
-#include "am_util_delay.h"
 
 //*****************************************************************************
 //
@@ -43,87 +42,32 @@ void am_timebase_busy_wait(uint32_t delay)
 volatile uint32_t g_ui32SysTickLast = 0xFFFFFF;
 volatile uint64_t g_ui64SysTickWrappedTimeLast = 0;
 
-uint32_t am_timebase_get_tick_ms(void)
+// return ms 
+uint32_t am_timebase_get_tick(unsigned long long* u64tick)
 {
-    uint32_t critical;
-    uint32_t tick;
-    uint32_t systick;
-    uint32_t CoreClk;
+	uint32_t critical;
+	uint32_t tickms;
+	unsigned long long tick;
+	uint32_t systick;
+	uint32_t CoreClk;
 
-    critical = am_hal_interrupt_master_disable();
+	critical = am_hal_interrupt_master_disable();
 
-    if (am_hal_burst_mode_status() == AM_HAL_BURST_MODE)
-        CoreClk = AM_CORECLK_KHZ*2;
-    else
-        CoreClk = AM_CORECLK_KHZ;
+	systick = am_hal_systick_count();
+	if (g_ui64SysTickWrappedTime == g_ui64SysTickWrappedTimeLast && systick > g_ui32SysTickLast)
+		tick =(((0xFFFFFF - (unsigned long long)systick) + (0xFFFFFF - (unsigned long long)g_ui32SysTickLast) + g_ui64SysTickWrappedTime));
+	else
+		tick =(((0xFFFFFF - (unsigned long long)systick) + (unsigned long long)g_ui64SysTickWrappedTime));
 
-    systick = am_hal_systick_count();
-    if (g_ui64SysTickWrappedTime == g_ui64SysTickWrappedTimeLast && systick > g_ui32SysTickLast)
-        tick =(((0xFFFFFF - systick) + (0xFFFFFF - g_ui32SysTickLast) + g_ui64SysTickWrappedTime)/CoreClk);
-    else
-        tick =(((0xFFFFFF - systick) + g_ui64SysTickWrappedTime)/CoreClk);
+	*u64tick = tick;
+	tickms = tick/AM_CORECLK_KHZ;
 
-    g_ui32SysTickLast = systick;
-    g_ui64SysTickWrappedTimeLast = g_ui64SysTickWrappedTime;
+	g_ui32SysTickLast = systick;
+	g_ui64SysTickWrappedTimeLast = g_ui64SysTickWrappedTime;
 
-    am_hal_interrupt_master_set(critical);
-    return tick;
+	am_hal_interrupt_master_set(critical);
+	return tickms;
 }
-
-#if 0
-uint64_t am_timebase_get_tick(void)
-{
-    uint32_t critical;
-    uint64_t tick;
-    uint32_t systick;
-    uint32_t CoreClk;
-
-    critical = am_hal_interrupt_master_disable();
-
-    systick = am_hal_systick_count();
-    if (g_ui64SysTickWrappedTime == g_ui64SysTickWrappedTimeLast && systick > g_ui32SysTickLast)
-        tick =((uint64_t)(0xFFFFFF - systick) + (uint64_t)(0xFFFFFF - g_ui32SysTickLast) + g_ui64SysTickWrappedTime);
-    else
-        tick =((uint64_t)(0xFFFFFF - systick) + g_ui64SysTickWrappedTime);
-
-    g_ui32SysTickLast = systick;
-    g_ui64SysTickWrappedTimeLast = g_ui64SysTickWrappedTime;
-
-    am_hal_interrupt_master_set(critical);
-	
-    return tick;
-}
-#else
- uint32_t am_timebase_get_tick(unsigned long long* mytick)
-{
-    uint32_t critical;
-    uint32_t tickms;
-		unsigned long long tick;
-    uint32_t systick;
-    uint32_t CoreClk;
-
-    critical = am_hal_interrupt_master_disable();
-
-    if (am_hal_burst_mode_status() == AM_HAL_BURST_MODE)
-        CoreClk = AM_CORECLK_KHZ*2;
-    else
-        CoreClk = AM_CORECLK_KHZ;
-
-    systick = am_hal_systick_count();
-    if (g_ui64SysTickWrappedTime == g_ui64SysTickWrappedTimeLast && systick > g_ui32SysTickLast)
-        tick =(((0xFFFFFF - (unsigned long long)systick) + (0xFFFFFF - (unsigned long long)g_ui32SysTickLast) + g_ui64SysTickWrappedTime));
-    else
-        tick =(((0xFFFFFF - (unsigned long long)systick) + (unsigned long long)g_ui64SysTickWrappedTime));
-		*mytick = tick;
-		tickms = tick/CoreClk;
-
-    g_ui32SysTickLast = systick;
-    g_ui64SysTickWrappedTimeLast = g_ui64SysTickWrappedTime;
-
-    am_hal_interrupt_master_set(critical);
-    return tickms;
-}
-#endif
 
 void am_timebase_init(void)
 {
